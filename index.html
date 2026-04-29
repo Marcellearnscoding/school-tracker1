@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Schultracker">
+  <meta name="theme-color" content="#0d0d0d">
+  <title>Schultracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg:    #ffffff; --bg2: #f4f4f5; --bg3: #e4e4e7; --bg4: #d4d4d8;
+      --text:  #09090b; --text2: #3f3f46; --text3: #a1a1aa;
+      --bdr:   rgba(0,0,0,0.08); --bdr2: rgba(0,0,0,0.13);
+      --blue:  #2563eb; --blue2: #dbeafe; --blue3: #1d4ed8;
+      --red:   #dc2626; --red2:  #fee2e2; --red3:  #7f1d1d;
+      --amber: #d97706; --amber2:#fef3c7;
+      --R: 14px; --Rs: 10px; --font: 'DM Sans', -apple-system, sans-serif; --mono: 'DM Mono', monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d0d0d; --bg2: #18181b; --bg3: #27272a; --bg4: #52525b;
+        --text: #fafafa; --text2: #d4d4d8; --text3: #71717a;
+        --bdr: rgba(255,255,255,0.07); --bdr2: rgba(255,255,255,0.13);
+        --blue: #60a5fa; --blue2: #1e3a5f; --blue3: #93c5fd;
+        --red: #f87171; --red2: #3b1515; --red3: #fca5a5;
+        --amber: #fbbf24; --amber2: #451a03;
+      }
+    }
+
+    html, body { height:100%; background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased; }
+
+    .app { max-width:430px; margin:0 auto; min-height:100%; display:flex; flex-direction:column; }
+
+    /* scroll */
+    .area { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:calc(68px + env(safe-area-inset-bottom)); }
+
+    /* pages */
+    .page { display:none; }
+    .page.active { display:block; }
+
+    /* sticky header */
+    .hd {
+      padding:14px 18px 12px;
+      padding-top: max(14px, calc(env(safe-area-inset-top) + 8px));
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+      border-bottom:.5px solid var(--bdr2);
+      position:sticky; top:0; z-index:50;
+    }
+    .hd-title { font-size:24px; font-weight:700; letter-spacing:-.5px; line-height:1; }
+    .hd-sub   { font-size:13px; color:var(--text3); margin-top:3px; }
+
+    /* section */
+    .s { padding:14px 16px 0; }
+    .s-lbl { font-size:10.5px; font-weight:700; letter-spacing:.9px; text-transform:uppercase; color:var(--text3); margin-bottom:7px; padding:0 3px; }
+
+    /* card */
+    .card { background:var(--bg2); border-radius:var(--R); overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.04); }
+    .crow { padding:12px 16px; border-bottom:.5px solid var(--bdr); display:flex; align-items:center; }
+    .crow:last-child { border-bottom:none; }
+
+    /* inputs */
+    input[type="date"], input[type="text"], textarea {
+      width:100%; background:var(--bg2); border:.5px solid var(--bdr2); border-radius:var(--Rs);
+      padding:12px 14px; font-size:15px; font-family:var(--font); color:var(--text);
+      -webkit-appearance:none; appearance:none; transition:border-color .15s;
+    }
+    input:focus, textarea:focus { outline:none; border-color:var(--blue); }
+    textarea { resize:none; }
+
+    /* absent toggle */
+    .abs-btn {
+      width:100%; padding:13px 16px; background:var(--bg2);
+      border:1.5px solid var(--bdr2); border-radius:var(--R);
+      cursor:pointer; display:flex; align-items:center; gap:11px;
+      font-family:var(--font); font-size:15px; font-weight:600; color:var(--text2);
+      box-shadow:0 1px 3px rgba(0,0,0,.07);
+      transition:all .2s;
+    }
+    .abs-icon { width:30px; height:30px; border-radius:8px; background:var(--bg3); display:flex; align-items:center; justify-content:center; font-size:15px; transition:background .2s; }
+    .abs-pill { margin-left:auto; width:42px; height:25px; background:var(--bg4); border-radius:13px; position:relative; transition:background .2s; }
+    .abs-pill::after { content:''; position:absolute; top:3px; left:3px; width:19px; height:19px; background:white; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .2s; }
+    .abs-btn.on { border-color:var(--red); background:var(--red2); color:var(--red3); }
+    .abs-btn.on .abs-icon { background:var(--red); color:white; }
+    .abs-btn.on .abs-pill { background:var(--red); }
+    .abs-btn.on .abs-pill::after { transform:translateX(17px); }
+
+    /* period rows */
+    .prow { display:flex; align-items:center; padding:11px 16px; border-bottom:.5px solid var(--bdr); cursor:pointer; user-select:none; transition:background .1s; }
+    .prow:last-child { border-bottom:none; }
+    .prow:active { background:var(--bg3); }
+    .prow.dim { opacity:.28; pointer-events:none; }
+
+    .pcheck { width:21px; height:21px; border-radius:50%; border:1.5px solid var(--bg4); background:transparent; flex-shrink:0; margin-right:12px; position:relative; transition:all .15s; }
+    .prow.on .pcheck { background:var(--blue); border-color:var(--blue); }
+    .prow.on .pcheck::after { content:''; position:absolute; top:5px; left:7px; width:4px; height:8px; border:1.8px solid white; border-top:none; border-left:none; transform:rotate(45deg); }
+
+    .pn  { font-family:var(--mono); font-size:11px; color:var(--text3); width:16px; flex-shrink:0; margin-right:10px; }
+    .pt  { font-family:var(--mono); font-size:11px; color:var(--text3); width:86px; flex-shrink:0; }
+    .pdot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-right:9px; }
+    .pname { font-size:15px; font-weight:500; flex:1; }
+
+    /* dot colors */
+    .c-deutsch    { background:#3b82f6; } .c-mathe      { background:#8b5cf6; }
+    .c-englisch   { background:#10b981; } .c-biologie   { background:#06b6d4; }
+    .c-chemie     { background:#f97316; } .c-physik     { background:#ef4444; }
+    .c-geographie { background:#84cc16; } .c-franz      { background:#ec4899; }
+    .c-geschichte { background:#f59e0b; } .c-kunst      { background:#6366f1; }
+    .c-musik      { background:#a855f7; } .c-sport      { background:#22c55e; }
+    .c-ler        { background:#64748b; } .c-wat        { background:#0891b2; }
+    .c-pb         { background:#eab308; } .c-gp         { background:#78716c; }
+    .c-klassenrat { background:#a78bfa; }
+
+    /* info box */
+    .ibox { border-radius:var(--Rs); padding:13px 15px; }
+    .ibox.blue { background:var(--blue2); }
+    .ibox.red  { background:var(--red2); }
+    .irow { display:flex; justify-content:space-between; align-items:baseline; padding:3px 0; font-size:14px; }
+    .ilbl { color:var(--blue3); font-weight:500; }
+    .ival { color:var(--blue3); font-weight:700; font-family:var(--mono); font-size:13px; }
+    .ibox.red .ilbl, .ibox.red .ival { color:var(--red3); }
+    .chrow { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+    .cchip { font-size:12px; font-weight:500; padding:3px 9px; border-radius:99px; background:rgba(255,255,255,.3); color:var(--blue3); }
+    .ibox.red .cchip { background:rgba(220,38,38,.12); color:var(--red3); }
+
+    /* save btn */
+    .bsave { width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:var(--R); font-family:var(--font); font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 18px rgba(37,99,235,.35); transition:opacity .15s,transform .1s; }
+    .bsave:active { opacity:.85; transform:scale(.99); }
+
+    /* stat grid */
+    .sgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .scard { background:var(--bg2); border-radius:var(--Rs); padding:14px 12px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+    .sval  { font-size:22px; font-weight:700; letter-spacing:-.5px; }
+    .slbl  { font-size:11px; color:var(--text3); margin-top:3px; font-weight:500; }
+
+    /* history */
+    .hcard { background:var(--bg2); border-radius:var(--R); margin-bottom:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); }
+    .hhead { display:flex; align-items:flex-start; justify-content:space-between; padding:13px 15px; border-bottom:.5px solid var(--bdr); }
+    .hhead.ab { background:var(--red2); }
+    .hdate { font-size:15px; font-weight:600; }
+    .hsub  { font-size:12px; color:var(--text3); margin-top:2px; font-family:var(--mono); }
+    .hsub.r { color:var(--red3); }
+    .hdur  { font-size:15px; font-weight:700; color:var(--blue); font-family:var(--mono); }
+    .hbody { padding:10px 15px; display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+    .hchip { font-size:12px; font-weight:500; padding:3px 9px; border-radius:99px; background:var(--bg3); color:var(--text2); }
+    .hnote { font-size:12px; color:var(--text3); font-style:italic; width:100%; margin-top:3px; }
+
+    .delbtn { background:none; border:none; cursor:pointer; color:var(--text3); font-size:16px; padding:3px 5px; line-height:1; }
+    .delbtn:active { color:var(--red); }
+
+    .molbl { font-size:10.5px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--text3); padding:0 3px; margin:18px 0 8px; }
+    .molbl:first-child { margin-top:0; }
+
+    /* bar chart */
+    .brow { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:.5px solid var(--bdr); }
+    .brow:last-child { border-bottom:none; }
+    .bname { font-size:14px; font-weight:500; min-width:96px; }
+    .btrack { flex:1; height:5px; background:var(--bg3); border-radius:99px; overflow:hidden; }
+    .bfill  { height:100%; border-radius:99px; background:var(--blue); }
+    .bcnt   { font-size:12px; color:var(--text3); font-family:var(--mono); min-width:26px; text-align:right; }
+
+    /* export */
+    .bexp { width:100%; padding:13px 16px; background:var(--bg2); color:var(--text2); border:.5px solid var(--bdr2); border-radius:var(--R); font-family:var(--font); font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+    .bexp:active { opacity:.7; }
+
+    /* toast */
+    .toast { position:fixed; bottom:calc(74px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%) translateY(10px); background:var(--bg3); color:var(--text); padding:9px 18px; border-radius:99px; font-size:14px; font-weight:500; opacity:0; transition:all .22s cubic-bezier(.2,.8,.4,1); z-index:300; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,.15); white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* empty */
+    .empty { text-align:center; padding:48px 24px; }
+    .empty-em { font-size:44px; display:block; margin-bottom:12px; }
+    .empty-t  { font-size:17px; font-weight:600; margin-bottom:6px; }
+    .empty-s  { font-size:14px; color:var(--text3); }
+
+    .wknd { background:var(--amber2); border-radius:var(--R); padding:16px; text-align:center; color:var(--amber); font-weight:600; font-size:15px; }
+
+    /* bottom tab bar */
+    .tabbar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-top:.5px solid var(--bdr2); display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:99; }
+    .tabbtn { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 0 5px; background:none; border:none; cursor:pointer; color:var(--text3); font-family:var(--font); font-size:10px; font-weight:500; letter-spacing:.2px; transition:color .15s; }
+    .tabbtn.active { color:var(--blue); }
+    .tabico { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:8px; }
+    .tabbtn.active .tabico { background:var(--blue2); }
+    .tabico svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="area">
+
+    <!-- ══ EINTRAGEN ══ -->
+    <div id="page-log" class="page active">
+      <div class="hd">
+        <div class="hd-title">Eintragen</div>
+        <div class="hd-sub" id="log-sub">Schultag erfassen</div>
+      </div>
+      <div class="s" style="margin-top:4px;">
+        <div class="s-lbl">Datum</div>
+        <input type="date" id="inp-date" onchange="onDatum()">
+      </div>
+      <div id="log-body"></div>
+    </div>
+
+    <!-- ══ VERLAUF ══ -->
+    <div id="page-history" class="page">
+      <div class="hd">
+        <div class="hd-title">Verlauf</div>
+        <div class="hd-sub">Alle Einträge</div>
+      </div>
+      <div class="s">
+        <div id="verlauf-liste"></div>
+        <div style="margin-top:14px;">
+          <button class="bexp" onclick="exportCSV()">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Als CSV exportieren
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ÜBERSICHT ══ -->
+    <div id="page-summary" class="page">
+      <div class="hd">
+        <div class="hd-title">Übersicht</div>
+        <div class="hd-sub" id="sum-mo">Dieser Monat</div>
+      </div>
+      <div class="s">
+        <div class="sgrid">
+          <div class="scard"><div class="sval" id="st-tage">0</div><div class="slbl">Tage da</div></div>
+          <div class="scard"><div class="sval" id="st-std">0h</div><div class="slbl">Stunden</div></div>
+          <div class="scard"><div class="sval" id="st-avg">—</div><div class="slbl">Ø / Tag</div></div>
+        </div>
+      </div>
+      <div class="s" style="margin-top:16px;">
+        <div class="s-lbl">Fehlzeiten</div>
+        <div class="card">
+          <div class="crow"><span style="flex:1;font-size:15px;">🚫 Ganztägig gefehlt</span><span style="font-weight:700;color:var(--red);" id="st-ab">0</span></div>
+          <div class="crow"><span style="flex:1;font-size:15px;">🕐 Früher gegangen</span><span style="font-weight:700;" id="st-frueh">0</span></div>
+          <div class="crow"><span style="flex:1;font-size:15px;">⏰ Zu spät</span><span style="font-weight:700;" id="st-spaet">0</span></div>
+        </div>
+      </div>
+      <div class="s" style="margin-top:16px;">
+        <div class="s-lbl">Fächer diesen Monat</div>
+        <div class="card" style="padding:4px 16px;" id="fach-chart"></div>
+      </div>
+    </div>
+
+  </div><!-- /area -->
+
+  <!-- tab bar -->
+  <div class="tabbar">
+    <button class="tabbtn active" id="tab-log" onclick="tab('log')">
+      <div class="tabico"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+      Eintragen
+    </button>
+    <button class="tabbtn" id="tab-history" onclick="tab('history')">
+      <div class="tabico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      Verlauf
+    </button>
+    <button class="tabbtn" id="tab-summary" onclick="tab('summary')">
+      <div class="tabico"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      Übersicht
+    </button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ──────────────────────────────────────────────
+//  STUNDENPLAN 8b  (aus Screenshot abgelesen)
+// ──────────────────────────────────────────────
+const SP = {
+  1: [ // Montag
+    {nr:1, von:'08:20', bis:'09:05', fach:'Klassenrat',  c:'klassenrat'},
+    {nr:2, von:'09:10', bis:'09:55', fach:'LER',         c:'ler'},
+    {nr:3, von:'10:10', bis:'10:55', fach:'Englisch',    c:'englisch'},
+    {nr:4, von:'11:00', bis:'11:45', fach:'Englisch',    c:'englisch'},
+    {nr:5, von:'11:50', bis:'12:35', fach:'Mathe',       c:'mathe'},
+    {nr:6, von:'13:30', bis:'14:15', fach:'WAT',         c:'wat'},
+    {nr:7, von:'14:20', bis:'15:05', fach:'PB',          c:'pb'},
+  ],
+  2: [ // Dienstag
+    {nr:1, von:'08:20', bis:'09:05', fach:'Deutsch',     c:'deutsch'},
+    {nr:2, von:'09:10', bis:'09:55', fach:'Deutsch',     c:'deutsch'},
+    {nr:3, von:'10:10', bis:'10:55', fach:'Geographie',  c:'geographie'},
+    {nr:4, von:'11:00', bis:'11:45', fach:'Chemie',      c:'chemie'},
+    {nr:5, von:'11:50', bis:'12:35', fach:'Physik',      c:'physik'},
+    {nr:6, von:'13:30', bis:'14:15', fach:'Sport',       c:'sport'},
+    {nr:7, von:'14:20', bis:'15:05', fach:'Biologie',    c:'biologie'},
+  ],
+  3: [ // Mittwoch
+    {nr:1, von:'08:20', bis:'09:05', fach:'Deutsch',     c:'deutsch'},
+    {nr:2, von:'09:10', bis:'09:55', fach:'Deutsch',     c:'deutsch'},
+    {nr:3, von:'10:10', bis:'10:55', fach:'Französisch', c:'franz'},
+    {nr:4, von:'11:00', bis:'11:45', fach:'Sport',       c:'sport'},
+    {nr:5, von:'11:50', bis:'12:35', fach:'Sport',       c:'sport'},
+    {nr:6, von:'13:30', bis:'14:15', fach:'GP',          c:'gp'},
+    {nr:7, von:'14:20', bis:'15:05', fach:'Mathe',       c:'mathe'},
+  ],
+  4: [ // Donnerstag
+    {nr:1, von:'08:20', bis:'09:05', fach:'Französisch', c:'franz'},
+    {nr:2, von:'09:10', bis:'09:55', fach:'Französisch', c:'franz'},
+    {nr:3, von:'10:10', bis:'10:55', fach:'Chemie',      c:'chemie'},
+    {nr:4, von:'11:00', bis:'11:45', fach:'Geschichte',  c:'geschichte'},
+    {nr:5, von:'11:50', bis:'12:35', fach:'Kunst',       c:'kunst'},
+    {nr:6, von:'13:30', bis:'14:15', fach:'LER',         c:'ler'},
+    {nr:7, von:'14:20', bis:'15:05', fach:'Musik',       c:'musik'},
+  ],
+  5: [ // Freitag
+    {nr:1, von:'08:20', bis:'09:05', fach:'Biologie',    c:'biologie'},
+    {nr:2, von:'09:10', bis:'09:55', fach:'Mathe',       c:'mathe'},
+    {nr:4, von:'11:00', bis:'11:45', fach:'Französisch', c:'franz'},
+    {nr:5, von:'11:50', bis:'12:35', fach:'Physik',      c:'physik'},
+    {nr:6, von:'13:30', bis:'14:15', fach:'Englisch',    c:'englisch'},
+  ],
+};
+
+const WTAGE  = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const KEY    = 'schultracker_v3';
+
+let eintraege = JSON.parse(localStorage.getItem(KEY) || '[]');
+let dayPlan   = [];
+let attended  = new Set();
+let absent    = false;
+
+function save() { localStorage.setItem(KEY, JSON.stringify(eintraege)); }
+function t2m(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+function m2s(m) { const h=Math.floor(m/60),mn=m%60; return mn===0?`${h}h`:`${h}h ${mn}m`; }
+
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+function tab(name) {
+  ['log','history','summary'].forEach(p=>{
+    document.getElementById('page-'+p).classList.toggle('active',p===name);
+    document.getElementById('tab-'+p).classList.toggle('active',p===name);
+  });
+  document.querySelector('.area').scrollTop=0;
+  if(name==='history') renderVerlauf();
+  if(name==='summary') renderUebersicht();
+}
+
+// ──── Log page ──────────────────────────────────
+
+function onDatum() {
+  const ds = document.getElementById('inp-date').value;
+  if(!ds) return;
+  const d   = new Date(ds+'T00:00:00');
+  const dow = d.getDay();
+  document.getElementById('log-sub').textContent =
+    d.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  absent   = false;
+  attended = new Set();
+  dayPlan  = SP[dow] || [];
+  dayPlan.forEach(p=>attended.add(p.nr));
+  renderLogBody(dow);
+}
+
+function renderLogBody(dow) {
+  const el = document.getElementById('log-body');
+  if(dow===0||dow===6){
+    el.innerHTML=`<div class="s" style="margin-top:14px;"><div class="wknd">🏖️ Wochenende – kein Schultag</div></div>`;
+    return;
+  }
+  el.innerHTML=`
+    <div class="s" style="margin-top:14px;">
+      <button class="abs-btn" id="abs-btn" onclick="toggleAbsent()">
+        <div class="abs-icon">🚫</div>
+        <span>Ganztägig gefehlt</span>
+        <div class="abs-pill"></div>
+      </button>
+    </div>
+    <div class="s" style="margin-top:14px;">
+      <div class="s-lbl">Stunden</div>
+      <div class="card" id="plist"></div>
+    </div>
+    <div style="padding:14px 16px 0;" id="ibox-wrap"></div>
+    <div class="s" style="margin-top:14px;">
+      <div class="s-lbl">Notiz (optional)</div>
+      <textarea id="inp-note" rows="2" placeholder="z. B. Arzttermin, zu spät wegen Bus …"></textarea>
+    </div>
+    <div class="s" style="margin-top:14px; padding-bottom:8px;">
+      <button class="bsave" onclick="speichern()">Eintrag speichern</button>
+    </div>`;
+  renderPeriods();
+  renderIbox();
+}
+
+function renderPeriods() {
+  const el=document.getElementById('plist'); if(!el) return;
+  el.innerHTML=dayPlan.map(p=>`
+    <div class="prow ${attended.has(p.nr)?'on':''} ${absent?'dim':''}" onclick="toggleP(${p.nr})">
+      <div class="pcheck"></div>
+      <div class="pn">${p.nr}</div>
+      <div class="pt">${p.von}–${p.bis}</div>
+      <div class="pdot c-${p.c}"></div>
+      <div class="pname">${p.fach}</div>
+    </div>`).join('');
+}
+
+function renderIbox() {
+  const wrap=document.getElementById('ibox-wrap'); if(!wrap) return;
+
+  if(absent){
+    wrap.innerHTML=`<div class="ibox red">
+      <div class="irow"><span class="ilbl" style="font-size:15px;font-weight:700;">🚫 Ganztägig abwesend</span><span class="ival" style="color:var(--red3);">0 h</span></div>
+      <div class="irow"><span class="ilbl" style="font-size:13px;">Wird als Fehlzeit gespeichert</span></div>
+    </div>`;
+    return;
+  }
+
+  const da = dayPlan.filter(p=>attended.has(p.nr));
+  if(!da.length){ wrap.innerHTML=''; return; }
+
+  const first = da[0], last = da[da.length-1];
+  const dauer = t2m(last.bis)-t2m(first.von);
+  const all   = dayPlan;
+  const frueh = last.nr < all[all.length-1].nr;
+  const spaet = first.nr > all[0].nr;
+  const faecher = [...new Set(da.map(p=>p.fach))];
+  const flags = [];
+  if(frueh) flags.push('🕐 Früher gegangen');
+  if(spaet) flags.push('⏰ Zu spät gekommen');
+
+  wrap.innerHTML=`<div class="ibox blue">
+    <div class="irow"><span class="ilbl">Angekommen</span><span class="ival">${first.von} · ${first.nr}. Std.</span></div>
+    <div class="irow"><span class="ilbl">Gegangen nach</span><span class="ival">${last.nr}. Stunde · ${last.bis}</span></div>
+    <div class="irow"><span class="ilbl">Anwesenheit</span><span class="ival">${m2s(dauer)}</span></div>
+    ${flags.length?`<div class="irow"><span class="ilbl" style="color:var(--amber);">${flags.join(' · ')}</span></div>`:''}
+    <div class="chrow">${faecher.map(f=>`<span class="cchip">${f}</span>`).join('')}</div>
+  </div>`;
+}
+
+function toggleAbsent(){
+  absent=!absent;
+  document.getElementById('abs-btn').classList.toggle('on',absent);
+  if(absent) attended.clear(); else dayPlan.forEach(p=>attended.add(p.nr));
+  renderPeriods(); renderIbox();
+}
+
+function toggleP(nr){
+  if(absent) return;
+  attended.has(nr)?attended.delete(nr):attended.add(nr);
+  renderPeriods(); renderIbox();
+}
+
+function speichern(){
+  const ds=document.getElementById('inp-date').value;
+  if(!ds){toast('Bitte Datum wählen');return;}
+  const dow=new Date(ds+'T00:00:00').getDay();
+  if(dow===0||dow===6){toast('Kein Schultag');return;}
+  const note=(document.getElementById('inp-note')?.value||'').trim();
+
+  if(eintraege.find(e=>e.datum===ds)){
+    if(!confirm('Für diesen Tag gibt es bereits einen Eintrag. Trotzdem speichern?')) return;
+  }
+
+  if(absent){
+    eintraege.unshift({id:Date.now(),datum:ds,gefehlt:true,stunden:[],faecher:[],von:null,bis:null,dauer:0,fruehGegangen:false,zuSpaet:false,note});
+    save(); toast('Fehlzeit gespeichert ✓'); return;
+  }
+
+  const da=dayPlan.filter(p=>attended.has(p.nr));
+  if(!da.length){toast('Bitte mindestens eine Stunde auswählen');return;}
+
+  const first=da[0], last=da[da.length-1];
+  const dauer=t2m(last.bis)-t2m(first.von);
+  eintraege.unshift({
+    id:Date.now(), datum:ds, gefehlt:false,
+    stunden:da.map(p=>p.nr),
+    ersteStunde:first.nr, letzteStunde:last.nr,
+    faecher:[...new Set(da.map(p=>p.fach))],
+    von:first.von, bis:last.bis, dauer,
+    fruehGegangen: last.nr<dayPlan[dayPlan.length-1].nr,
+    zuSpaet: first.nr>dayPlan[0].nr,
+    note
+  });
+  save();
+  if(document.getElementById('inp-note')) document.getElementById('inp-note').value='';
+  toast('Eintrag gespeichert ✓');
+}
+
+// ──── Verlauf ───────────────────────────────────
+
+function renderVerlauf(){
+  const el=document.getElementById('verlauf-liste');
+  if(!eintraege.length){
+    el.innerHTML=`<div class="empty"><span class="empty-em">📋</span><div class="empty-t">Noch keine Einträge</div><div class="empty-s">Trage deinen ersten Schultag ein</div></div>`;
+    return;
+  }
+  const g={};
+  eintraege.forEach(e=>{const k=e.datum.slice(0,7);(g[k]=g[k]||[]).push(e);});
+
+  el.innerHTML=Object.keys(g).sort().reverse().map(mo=>{
+    const [y,m]=mo.split('-');
+    const rows=g[mo].map(e=>{
+      const dlabel=new Date(e.datum+'T00:00:00').toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'short'});
+      if(e.gefehlt) return `
+        <div class="hcard">
+          <div class="hhead ab">
+            <div><div class="hdate">${dlabel}</div><div class="hsub r">Ganztägig gefehlt</div></div>
+            <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">🚫</span><button class="delbtn" onclick="loeschen(${e.id})">✕</button></div>
+          </div>
+          ${e.note?`<div class="hbody"><span class="hnote">📝 ${e.note}</span></div>`:''}
+        </div>`;
+
+      let sub=`${e.stunden.length} Std. · ${e.von}–${e.bis}`;
+      if(e.fruehGegangen) sub+=' · früher gegangen';
+      if(e.zuSpaet) sub+=' · zu spät';
+
+      return `
+        <div class="hcard">
+          <div class="hhead">
+            <div><div class="hdate">${dlabel}</div><div class="hsub">${sub}</div></div>
+            <div style="display:flex;align-items:center;gap:10px;"><span class="hdur">${m2s(e.dauer)}</span><button class="delbtn" onclick="loeschen(${e.id})">✕</button></div>
+          </div>
+          <div class="hbody">
+            ${e.faecher.map(f=>`<span class="hchip">${f}</span>`).join('')}
+            ${e.note?`<span class="hnote">📝 ${e.note}</span>`:''}
+          </div>
+        </div>`;
+    }).join('');
+    return `<div class="molbl">${MONATE[+m-1]} ${y}</div>${rows}`;
+  }).join('');
+}
+
+function loeschen(id){
+  if(!confirm('Eintrag löschen?')) return;
+  eintraege=eintraege.filter(e=>e.id!==id);
+  save(); renderVerlauf();
+}
+
+// ──── Übersicht ─────────────────────────────────
+
+function renderUebersicht(){
+  const now=new Date();
+  const mk=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('sum-mo').textContent=`${MONATE[now.getMonth()]} ${now.getFullYear()}`;
+
+  const mo   =eintraege.filter(e=>e.datum.startsWith(mk));
+  const da   =mo.filter(e=>!e.gefehlt);
+  const mins =da.reduce((s,e)=>s+e.dauer,0);
+  const nAb  =mo.filter(e=>e.gefehlt).length;
+  const nFr  =da.filter(e=>e.fruehGegangen).length;
+  const nSp  =da.filter(e=>e.zuSpaet).length;
+
+  document.getElementById('st-tage').textContent=da.length;
+  document.getElementById('st-std').textContent=m2s(mins);
+  document.getElementById('st-avg').textContent=da.length?m2s(Math.round(mins/da.length)):'—';
+  document.getElementById('st-ab').textContent=`${nAb} Tag${nAb!==1?'e':''}`;
+  document.getElementById('st-frueh').textContent=`${nFr} Tag${nFr!==1?'e':''}`;
+  document.getElementById('st-spaet').textContent=`${nSp} Tag${nSp!==1?'e':''}`;
+
+  const cnt={};
+  da.forEach(e=>e.faecher.forEach(f=>{cnt[f]=(cnt[f]||0)+1;}));
+  const sorted=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+  const maxC=sorted[0]?.[1]||1;
+  const chart=document.getElementById('fach-chart');
+
+  if(!sorted.length){
+    chart.innerHTML='<div style="padding:16px 0;text-align:center;color:var(--text3);font-size:14px;">Noch keine Daten diesen Monat</div>';
+  } else {
+    chart.innerHTML=sorted.map(([f,n])=>`
+      <div class="brow">
+        <span class="bname">${f}</span>
+        <div class="btrack"><div class="bfill" style="width:${Math.round(n/maxC*100)}%"></div></div>
+        <span class="bcnt">${n}×</span>
+      </div>`).join('');
+  }
+}
+
+// ──── Export ────────────────────────────────────
+
+function exportCSV(){
+  if(!eintraege.length){toast('Keine Daten vorhanden');return;}
+  const h=['Datum','Wochentag','Anwesend','Angekommen','Gegangen nach Stunde','Abgegangen um','Dauer (Min)','Stunden-Nummern','Fächer','Früher gegangen','Zu spät','Notiz'];
+  const rows=eintraege.map(e=>{
+    const d=new Date(e.datum+'T00:00:00');
+    return[e.datum,WTAGE[d.getDay()],e.gefehlt?'Nein':'Ja',e.von||'—',e.letzteStunde?`${e.letzteStunde}. Stunde`:'—',e.bis||'—',e.dauer,(e.stunden||[]).join(';'),(e.faecher||[]).join('; '),e.fruehGegangen?'Ja':'Nein',e.zuSpaet?'Ja':'Nein',e.note||''];
+  });
+  const csv=[h,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`schulanwesenheit_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('CSV exportiert ✓');
+}
+
+// ──── Init ──────────────────────────────────────
+document.getElementById('inp-date').value=new Date().toISOString().slice(0,10);
+onDatum();
+</script>
+</body>
+</html>
